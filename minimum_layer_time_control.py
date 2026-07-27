@@ -11,6 +11,10 @@ class MinLayerTimer:
         self.z_hop = config.getfloat('z_hop', 5.0, minval=0.)
         self.travel_speed = config.getfloat('travel_speed', 150.0, above=0.)
         self.z_speed = config.getfloat('z_speed', 15.0, above=0.)
+        self.retract = config.getfloat('retract', 1.0, minval=0.)
+        self.retract_speed = config.getfloat('retract_speed', 35.0, above=0.)
+        self.unretract_extra = config.getfloat('unretract_extra', 0.0)
+        self.unretract_speed = config.getfloat('unretract_speed', 20.0, above=0.)
         self.enabled = False
         self.is_printing = False
         self.current_layer = 0
@@ -110,6 +114,7 @@ class MinLayerTimer:
         orig_x, orig_y, orig_z = curpos[0], curpos[1], curpos[2]
         self.gcode.respond_info(
             "Контроль времени слоя: ожидание %.1f с" % wait_time)
+        self._move_e(-self.retract, self.retract_speed)
         if self.z_hop > 0.:
             toolhead.manual_move([None, None, orig_z + self.z_hop], self.z_speed)
         toolhead.manual_move([self.park_x, self.park_y, None], self.travel_speed)
@@ -117,6 +122,18 @@ class MinLayerTimer:
         toolhead.manual_move([orig_x, orig_y, None], self.travel_speed)
         if self.z_hop > 0.:
             toolhead.manual_move([None, None, orig_z], self.z_speed)
+        self._move_e(self.retract + self.unretract_extra, self.unretract_speed)
+
+    def _move_e(self, amount, speed):
+        if not amount:
+            return
+        toolhead = self.printer.lookup_object('toolhead')
+        extruder = toolhead.get_extruder()
+        if not extruder.can_extrude:
+            return
+        pos = toolhead.get_position()
+        pos[3] += amount
+        toolhead.manual_move(pos, speed)
 
     def _status_update(self, eventtime):
         # Reset stuck layer timer after 5 minutes without a layer change
