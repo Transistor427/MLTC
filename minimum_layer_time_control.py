@@ -128,11 +128,11 @@ class MinLayerTimer:
 
     def cmd_ENABLE(self, gcmd):
         self.enabled = True
-        gcmd.respond_info("Контроль времени слоя включен")
+        gcmd.respond_info("Контроль времени слоя активирован")
 
     def cmd_DISABLE(self, gcmd):
         self.enabled = False
-        gcmd.respond_info("Контроль времени слоя выключен")
+        gcmd.respond_info("Контроль времени слоя отключен")
 
 def load_config(config):
     return MinLayerTimer(config)
