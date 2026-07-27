@@ -26,9 +26,22 @@ cp ~/MLTC/minimum_layer_time_control.cfg ~/printer_data/config/klipper-config
 ```
 [minimum_layer_time_control]
 min_layer_time: 20
+park_x: 0
+park_y: 0
+z_hop: 5
+travel_speed: 150
+z_speed: 15
 ```
 
-`min_layer_time` — минимальное время слоя в секундах.
+| Параметр | Описание |
+|---|---|
+| `min_layer_time` | Минимальное время слоя, с |
+| `park_x` / `park_y` | Координаты отъезда головы на время ожидания |
+| `z_hop` | Подъём по Z перед отъездом, мм |
+| `travel_speed` | Скорость перемещения XY, мм/с |
+| `z_speed` | Скорость подъёма/опускания Z, мм/с |
+
+При нехватке времени слоя: подъём Z → парковка XY → ожидание → возврат XY → опускание Z.
 
 ## Использование
 

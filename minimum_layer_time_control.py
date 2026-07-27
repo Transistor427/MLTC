@@ -1,13 +1,16 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
-import logging
-
 class MinLayerTimer:
     def __init__(self, config):
         self.printer = config.get_printer()
         self.reactor = self.printer.get_reactor()
         self.gcode = self.printer.lookup_object('gcode')
         self.min_layer_time = config.getfloat('min_layer_time', 20.0, above=0.)
+        self.park_x = config.getfloat('park_x')
+        self.park_y = config.getfloat('park_y')
+        self.z_hop = config.getfloat('z_hop', 5.0, minval=0.)
+        self.travel_speed = config.getfloat('travel_speed', 150.0, above=0.)
+        self.z_speed = config.getfloat('z_speed', 15.0, above=0.)
         self.enabled = False
         self.is_printing = False
         self.current_layer = 0
@@ -16,7 +19,6 @@ class MinLayerTimer:
         self.status_timer = None
         self._prev_M117 = None
         self._prev_SET_PRINT_STATS_INFO = None
-        self.logger = logging.getLogger('min_layer_timer')
         self.printer.register_event_handler("klippy:connect", self._handle_connect)
         self.printer.register_event_handler("klippy:started", self._handle_started)
         self.printer.register_event_handler("klippy:disconnect", self._handle_disconnect)
@@ -97,29 +99,24 @@ class MinLayerTimer:
             self.last_layer_time = current_time - self.layer_start_time
             if self.last_layer_time < self.min_layer_time:
                 wait_time = self.min_layer_time - self.last_layer_time
-                self._schedule_pause_and_resume(wait_time)
+                self._wait_remaining(wait_time)
         self.current_layer = new_layer
-        self.layer_start_time = current_time
+        self.layer_start_time = self.reactor.monotonic()
 
-    def _schedule_pause_and_resume(self, wait_time):
-        def _async_action(eventtime):
-            try:
-                if not self.is_printing or not self.enabled:
-                    return
-                self.gcode.respond_info(
-                    "Контроль времени слоя: пауза %.1f с" % wait_time)
-                self.gcode.run_script_from_command("PAUSE")
-                self.reactor.pause(self.reactor.monotonic() + wait_time)
-                if self.is_printing and self.enabled:
-                    self.gcode.run_script_from_command("RESUME")
-                else:
-                    self.gcode.respond_info(
-                        "Контроль времени слоя: ожидание прервано")
-            except Exception as e:
-                self.logger.exception("pause/resume failed: %s", e)
-                self.gcode.respond_info(
-                    "Контроль времени слоя: ошибка паузы")
-        self.reactor.register_callback(_async_action)
+    def _wait_remaining(self, wait_time):
+        toolhead = self.printer.lookup_object('toolhead')
+        toolhead.wait_moves()
+        curpos = toolhead.get_position()
+        orig_x, orig_y, orig_z = curpos[0], curpos[1], curpos[2]
+        self.gcode.respond_info(
+            "Контроль времени слоя: ожидание %.1f с" % wait_time)
+        if self.z_hop > 0.:
+            toolhead.manual_move([None, None, orig_z + self.z_hop], self.z_speed)
+        toolhead.manual_move([self.park_x, self.park_y, None], self.travel_speed)
+        toolhead.dwell(wait_time)
+        toolhead.manual_move([orig_x, orig_y, None], self.travel_speed)
+        if self.z_hop > 0.:
+            toolhead.manual_move([None, None, orig_z], self.z_speed)
 
     def _status_update(self, eventtime):
         # Reset stuck layer timer after 5 minutes without a layer change
