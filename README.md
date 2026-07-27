@@ -33,10 +33,32 @@ min_layer_time: 20
 ## Использование
 
 Для кнопки в интерфейсе используйте `CHANGE_MLTC` (состояние хранится в `change_mltc` через `save_variables`).
-В стартовый G-код при необходимости добавьте `MLTC_ENABLE`.
+Перед печатью контроль должен быть включён (`CHANGE_MLTC` / `MLTC_ENABLE`).
+
+### Слайсер и макрос смены слоя
+
+В G-коде смены слоя слайсера (Orca/Prusa/SuperSlicer):
+
+```
+_AFTER_LAYER_CHANGE Z={layer_z} NUM_LAYER={layer_num}
+```
+
+В конфиге принтера в макрос `_AFTER_LAYER_CHANGE` добавьте вызов MLTC (остальной код макроса оставьте как есть):
+
+```
+[gcode_macro _AFTER_LAYER_CHANGE]
+gcode:
+    ; ... ваш существующий код ...
+    {% if params.NUM_LAYER is defined %}
+    MINIMUM_LAYER_TIME_CONTROL_LAYER LAYER={params.NUM_LAYER}
+    {% endif %}
+```
+
+Без `NUM_LAYER` в вызове из слайсера и без этой строки в макросе модуль не узнаёт о смене слоя и паузу не ставит.
 
 | Команда | Действие |
 |---|---|
 | `CHANGE_MLTC` | Переключить контроль |
 | `MLTC_ENABLE` | Включить контроль |
 | `MLTC_DISABLE` | Выключить контроль |
+| `MINIMUM_LAYER_TIME_CONTROL_LAYER` | Сообщить номер слоя (`LAYER=` / `NUM_LAYER=`) |

@@ -34,6 +34,10 @@ class MinLayerTimer:
             'MINIMUM_LAYER_TIME_CONTROL_DISABLE',
             self.cmd_DISABLE,
             desc="Disable minimum layer time control")
+        self.gcode.register_command(
+            'MINIMUM_LAYER_TIME_CONTROL_LAYER',
+            self.cmd_LAYER,
+            desc="Notify layer change for minimum layer time control")
 
     def _handle_connect(self):
         # Wrap after other modules register their handlers
@@ -125,6 +129,14 @@ class MinLayerTimer:
                 self.layer_start_time = eventtime
                 self.last_layer_time = 0.
         return eventtime + 30.
+
+    def cmd_LAYER(self, gcmd):
+        layer = gcmd.get_int('LAYER', None)
+        if layer is None:
+            layer = gcmd.get_int('NUM_LAYER', None)
+        if layer is None:
+            raise gcmd.error("LAYER or NUM_LAYER is required")
+        self._handle_layer_change(layer)
 
     def cmd_ENABLE(self, gcmd):
         self.enabled = True
