@@ -129,7 +129,15 @@ class MinLayerTimer:
             return
         toolhead = self.printer.lookup_object('toolhead')
         extruder = toolhead.get_extruder()
-        if not extruder.can_extrude:
+        # Older Klipper builds may not expose extruder.can_extrude
+        can_extrude = getattr(extruder, 'can_extrude', None)
+        if can_extrude is None:
+            heater = extruder.get_heater()
+            eventtime = self.reactor.monotonic()
+            smoothed_temp, _ = heater.get_temp(eventtime)
+            min_extrude_temp = getattr(heater, 'min_extrude_temp', 0.)
+            can_extrude = smoothed_temp >= min_extrude_temp
+        if not can_extrude:
             return
         pos = toolhead.get_position()
         pos[3] += amount
